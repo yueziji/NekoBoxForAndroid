@@ -2,7 +2,8 @@ module libcore
 
 go 1.24.7
 
-toolchain go1.24.9
+// The Matsuri gomobile fork requires gotypesalias=0, removed in Go 1.27.
+toolchain go1.26.10
 
 require (
 	github.com/dyhkwong/sing-juicity v0.0.3
