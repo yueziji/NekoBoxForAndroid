@@ -10,6 +10,8 @@ jobs:
   libcore:
     name: Native Build (LibCore)
     runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.core-cache-key.outputs.key }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -24,13 +26,16 @@ jobs:
         run: find buildScript libcore/*.sh | xargs cat | sha1sum > golang_status
       - name: Libcore Status
         run: git ls-files libcore | xargs cat | sha1sum > libcore_status
+      - name: LibCore Cache Key
+        id: core-cache-key
+        run: echo "key=${{ hashFiles('.github/workflows/*', 'golang_status', 'libcore_status') }}-ci" >> "$GITHUB_OUTPUT"
       - name: LibCore Cache
         id: cache
         uses: actions/cache@v5
         with:
           path: |
             app/libs/libcore.aar
-          key: ${{ hashFiles('.github/workflows/*', 'golang_status', 'libcore_status') }}-ci
+          key: ${{ steps.core-cache-key.outputs.key }}
       - name: Install Golang
         if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/setup-go@v6
@@ -55,16 +60,15 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-      - name: Golang Status
-        run: find buildScript libcore/*.sh | xargs cat | sha1sum > golang_status
-      - name: Libcore Status
-        run: git ls-files libcore | xargs cat | sha1sum > libcore_status
       - name: LibCore Cache
-        uses: actions/cache@v5
+        uses: actions/cache/restore@v5
         with:
           path: |
             app/libs/libcore.aar
-          key: ${{ hashFiles('.github/workflows/*', 'golang_status', 'libcore_status') }}-ci
+          key: ${{ needs.libcore.outputs.cache-key }}
+          fail-on-cache-miss: true
+      - name: Verify LibCore
+        run: test -s app/libs/libcore.aar
       - name: HevTun Status
         run: |
           git submodule status hev-socks5-tunnel > hev_status
