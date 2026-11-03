@@ -6,11 +6,13 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.bg.BaseService
+import io.nekohasekai.sagernet.ui.ThemedActivity
 import io.nekohasekai.sagernet.ktx.triggerFullRestart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -20,7 +22,7 @@ import okhttp3.Request
 import org.json.JSONArray
 import java.util.concurrent.TimeUnit
 
-class CoreUpdateActivity : AppCompatActivity() {
+class CoreUpdateActivity : ThemedActivity() {
     private lateinit var status: TextView
     private val buttons = mutableListOf<Button>()
     private val client = OkHttpClient.Builder()
@@ -65,7 +67,13 @@ class CoreUpdateActivity : AppCompatActivity() {
                 .setPositiveButton(android.R.string.ok) { _, _ -> triggerFullRestart(this) }.show()
         }
         button("返回") { finish() }
-        setContentView(ScrollView(this).apply { addView(column) })
+        val scroll = ScrollView(this).apply { addView(column) }
+        setContentView(scroll)
+        ViewCompat.setOnApplyWindowInsetsListener(scroll) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
         refresh()
     }
 
