@@ -2,6 +2,7 @@ package moe.matsuri.nb4a.core;
 
 import android.app.Instrumentation;
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.AtomicFile;
 import org.json.JSONObject;
@@ -20,6 +21,13 @@ public class CoreSmokeInstrumentation extends Instrumentation {
         try {
             String action = arguments.getString("action", "probe");
             switch (action) {
+                case "ui":
+                    for (Class<?> screen : new Class<?>[] {io.nekohasekai.sagernet.ui.MainActivity.class, CoreUpdateActivity.class}) {
+                        Activity activity = startActivitySync(new Intent(getTargetContext(), screen).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                        waitForIdleSync();
+                        runOnMainSync(activity::finish);
+                    }
+                    break;
                 case "stage":
                     try (InputStream input = new FileInputStream(new File(getTargetContext().getFilesDir(), "core-test.zip"))) {
                         report.putString("version", CoreLoader.install(input));
