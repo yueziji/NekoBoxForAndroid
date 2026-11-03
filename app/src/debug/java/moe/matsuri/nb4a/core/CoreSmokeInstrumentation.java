@@ -3,6 +3,8 @@ package moe.matsuri.nb4a.core;
 import android.app.Instrumentation;
 import android.app.Activity;
 import android.os.Bundle;
+import android.util.AtomicFile;
+import org.json.JSONObject;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
@@ -24,6 +26,18 @@ public class CoreSmokeInstrumentation extends Instrumentation {
                     }
                     break;
                 case "builtin": CoreLoader.useBuiltin(); break;
+                case "interrupt":
+                    // Reproduce the persisted state left by a process dying during native initialization.
+                    AtomicFile store = new AtomicFile(new File(getTargetContext().getNoBackupFilesDir(), "dynamic-core/state.json"));
+                    JSONObject state;
+                    try (InputStream input = store.openRead()) {
+                        state = new JSONObject(new String(CoreBundle.read(input, 65536), StandardCharsets.UTF_8));
+                    }
+                    state.put("pending_main", state.getString("selected"));
+                    FileOutputStream output = store.startWrite();
+                    output.write(state.toString().getBytes(StandardCharsets.UTF_8));
+                    store.finishWrite(output);
+                    break;
                 case "probe":
                     String expected = arguments.getString("expected", "内置");
                     if (!CoreLoader.status().contains(expected)) throw new AssertionError("Unexpected core selection");

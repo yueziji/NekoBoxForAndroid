@@ -11,6 +11,9 @@ probe probe 内置
 adb push dynamic-output/nekobox-core-x86_64.zip /data/local/tmp/nekobox-core-test.zip
 adb shell "run-as $PKG sh -c 'mkdir -p files; cat /data/local/tmp/nekobox-core-test.zip > files/core-test.zip'"
 probe stage
+probe interrupt
+probe probe 内置
+probe stage
 probe probe 动态
 probe builtin
 probe probe 内置
