@@ -1,0 +1,76 @@
+package moe.matsuri.nb4a.core;
+
+import android.app.Instrumentation;
+import android.app.Activity;
+import android.os.Bundle;
+import java.io.*;
+import java.net.*;
+import java.nio.charset.StandardCharsets;
+import libcore.Libcore;
+import libcore.BoxInstance;
+
+/** Shell-only debug smoke tests; runs on a fresh CI emulator, never user devices. */
+public class CoreSmokeInstrumentation extends Instrumentation {
+    private Bundle arguments;
+    @Override public void onCreate(Bundle args) { super.onCreate(args); arguments = args; start(); }
+    @Override public void onStart() {
+        Bundle report = new Bundle();
+        try {
+            String action = arguments.getString("action", "probe");
+            switch (action) {
+                case "stage":
+                    try (InputStream input = new FileInputStream(new File(getTargetContext().getFilesDir(), "core-test.zip"))) {
+                        report.putString("version", CoreLoader.install(input));
+                    }
+                    break;
+                case "builtin": CoreLoader.useBuiltin(); break;
+                case "probe":
+                    String expected = arguments.getString("expected", "内置");
+                    if (!CoreLoader.status().contains(expected)) throw new AssertionError("Unexpected core selection");
+                    if (!Libcore.versionBox().contains("1.14.4")) throw new AssertionError("Unexpected core version");
+                    probeSocks();
+                    break;
+                default: throw new IllegalArgumentException("Unknown smoke action");
+            }
+            report.putString("result", "PASS");
+            report.putString("status", CoreLoader.status());
+            finish(Activity.RESULT_OK, report);
+        } catch (Throwable error) {
+            report.putString("result", "FAIL");
+            report.putString("error", error.getClass().getSimpleName() + ": " + error.getMessage());
+            finish(Activity.RESULT_CANCELED, report);
+        }
+    }
+
+    private void probeSocks() throws Exception {
+        try (ServerSocket witness = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+            witness.setSoTimeout(15000);
+            int proxyPort;
+            try (ServerSocket reservation = new ServerSocket(0)) { proxyPort = reservation.getLocalPort(); }
+            BoxInstance instance = Libcore.newSingBoxInstance("{\"inbounds\":[{\"type\":\"mixed\",\"listen\":\"127.0.0.1\",\"listen_port\":" + proxyPort + "}],\"outbounds\":[{\"type\":\"direct\",\"tag\":\"direct\"}],\"route\":{\"final\":\"direct\"}}", null);
+            try {
+                instance.start();
+                Thread responder = new Thread(() -> {
+                    try (Socket socket = witness.accept()) {
+                        socket.setSoTimeout(10000);
+                        byte[] request = new byte[4];
+                        new DataInputStream(socket.getInputStream()).readFully(request);
+                        if (!new String(request, StandardCharsets.US_ASCII).equals("PING")) return;
+                        socket.getOutputStream().write("PONG".getBytes(StandardCharsets.US_ASCII));
+                    } catch (IOException ignored) { }
+                });
+                responder.start();
+                try (Socket client = new Socket(new Proxy(Proxy.Type.SOCKS, new InetSocketAddress("127.0.0.1", proxyPort)))) {
+                    client.connect(new InetSocketAddress("127.0.0.1", witness.getLocalPort()), 10000);
+                    client.setSoTimeout(10000);
+                    client.getOutputStream().write("PING".getBytes(StandardCharsets.US_ASCII));
+                    byte[] reply = new byte[4];
+                    new DataInputStream(client.getInputStream()).readFully(reply);
+                    if (!new String(reply, StandardCharsets.US_ASCII).equals("PONG")) throw new AssertionError("SOCKS data plane failed");
+                }
+                responder.join(10000);
+                if (responder.isAlive()) throw new AssertionError("Witness did not finish");
+            } finally { instance.close(); }
+        }
+    }
+}

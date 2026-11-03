@@ -147,7 +147,8 @@ public final class CoreLoader {
         if (!library.setReadOnly() || !archive.setReadOnly()) throw new IOException("无法保护内核文件");
         if (!bundle.sha256.equals(CoreBundle.hash(library))) throw new SecurityException("内核落盘校验失败");
         state(s -> {
-            s.addProperty("previous", value(s, "selected"));
+            // Multiple downloads before restarting must not make an untested package the fallback.
+            s.addProperty("previous", loadedId);
             s.addProperty("selected", id);
             s.addProperty("pending_main", "");
             s.addProperty("pending_bg", "");

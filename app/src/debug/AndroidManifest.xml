@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <instrumentation
+        android:name="moe.matsuri.nb4a.core.CoreSmokeInstrumentation"
+        android:targetPackage="${applicationId}"
+        android:functionalTest="true" />
+</manifest>

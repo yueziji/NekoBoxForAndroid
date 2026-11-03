@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.ktx.triggerFullRestart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -74,7 +75,7 @@ class CoreUpdateActivity : AppCompatActivity() {
 
     private fun perform(action: () -> String) {
         // Staging while an old background process is being restarted could mix generations.
-        if (DataStore.serviceState.started) {
+        if (DataStore.serviceState.started || DataStore.serviceState == BaseService.State.Stopping) {
             refresh("请先断开代理，再安装或切换内核。")
             return
         }

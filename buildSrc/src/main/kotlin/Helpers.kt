@@ -126,7 +126,8 @@ fun Project.setupApp() {
         defaultConfig {
             applicationId = pkgName
             versionCode = verCode
-            versionName = verName
+            versionName = "$verName-dynamic.1"
+            resValue("string", "dynamic_app_name", "NekoBox Dynamic")
             buildConfigField("String", "PRE_VERSION_NAME", "\"\"")
         }
     }
