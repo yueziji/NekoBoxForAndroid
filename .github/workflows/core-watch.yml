@@ -1,0 +1,52 @@
+name: Follow sing-box stable
+on:
+  schedule:
+    # Daily at 10:17 Asia/Shanghai (02:17 UTC); GitHub may delay scheduled runs.
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+    inputs:
+      verify_current:
+        description: 'Build and test the current stable version without publishing'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: follow-sing-box-stable
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.upstream.outputs.build }}
+      publish: ${{ steps.upstream.outputs.publish }}
+      version: ${{ steps.upstream.outputs.version }}
+      commit: ${{ steps.upstream.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/dynamic-core
+          persist-credentials: false
+      - name: Check official stable release and existing packages
+        id: upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERIFY_CURRENT: ${{ inputs.verify_current }}
+        run: |
+          python -m unittest discover -s buildScript/dynamic -p 'test_*.py'
+          args=()
+          if [[ "$VERIFY_CURRENT" == true ]]; then args+=(--verify-current); fi
+          python buildScript/dynamic/upstream.py "${args[@]}"
+  build:
+    needs: check
+    if: needs.check.outputs.build == 'true'
+    permissions:
+      contents: write
+      actions: read
+    uses: yueziji/NekoBoxForAndroid/.github/workflows/dynamic-core.yml@feature/dynamic-core
+    with:
+      core_commit: ${{ needs.check.outputs.commit }}
+      core_version: ${{ needs.check.outputs.version }}
+      publish: ${{ needs.check.outputs.publish == 'true' }}
+    secrets:
+      DYNAMIC_CORE_SIGNING_KEY: ${{ secrets.DYNAMIC_CORE_SIGNING_KEY }}
