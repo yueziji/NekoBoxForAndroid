@@ -15,6 +15,14 @@ jniLibs/
 /library/libcore_build/
 .idea/deploymentTargetDropDown.xml
 /nkmr
+/dynamic-output/
+__pycache__/
+/libcore/.dynamic-build/
+/libcore/gomobile/
+/libcore/libcore.aar
+/libcore/libcore-sources.jar
+/app/src/main/assets/dynamic-core/binding.txt
+/app/src/main/assets/dynamic-core/builtin-version.txt
 
 # submodules
 /external

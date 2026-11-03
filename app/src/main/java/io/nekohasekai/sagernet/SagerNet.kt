@@ -57,6 +57,7 @@ class SagerNet : Application(),
         Thread.setDefaultUncaughtExceptionHandler(CrashHandler)
 
         if (isMainProcess || isBgProcess) {
+            moe.matsuri.nb4a.core.CoreLoader.prepare(this, process)
             DataStore.migrateLegacySettings()
             externalAssets.mkdirs()
             Seq.setContext(this)
@@ -69,6 +70,7 @@ class SagerNet : Application(),
                 DataStore.logLevel > 0,
                 nativeInterface, nativeInterface, LocalResolverImpl
             )
+            moe.matsuri.nb4a.core.CoreLoader.ready()
 
             // fix multi process issue in Android 9+
             JavaUtil.handleWebviewDir(this)
@@ -117,7 +119,7 @@ class SagerNet : Application(),
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
 
-        Libcore.forceGc()
+        if (isMainProcess || isBgProcess) Libcore.forceGc()
     }
 
     @SuppressLint("InlinedApi")

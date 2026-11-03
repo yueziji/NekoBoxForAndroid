@@ -1,0 +1,82 @@
+name: Dynamic core
+on:
+  push:
+    branches: [feature/dynamic-core]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: workspace/NekoBoxForAndroid
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.10'
+          cache-dependency-path: workspace/NekoBoxForAndroid/libcore/go.sum
+      - name: Install Android toolchain
+        run: sdkmanager 'platforms;android-37' 'build-tools;36.1.0' 'ndk;28.2.13676358'
+      - name: Build and test native core
+        working-directory: workspace/NekoBoxForAndroid
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/28.2.13676358
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
+          bash buildScript/dynamic/build-core.sh
+      - name: Package signed dynamic cores
+        working-directory: workspace/NekoBoxForAndroid
+        env:
+          DYNAMIC_CORE_SIGNING_KEY: ${{ secrets.DYNAMIC_CORE_SIGNING_KEY }}
+        run: |
+          python -m pip install cryptography
+          python buildScript/dynamic/prepare.py --aar libcore/libcore.aar --seq libcore/gomobile/bind/java/Seq.java --android-jar "$ANDROID_HOME/platforms/android-37/android.jar" --version 1.14.4-dynamic.1 --output dynamic-output
+      - name: Download rule databases
+        working-directory: workspace/NekoBoxForAndroid
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p app/src/main/assets/sing-box
+          cd app/src/main/assets/sing-box
+          for db in geoip geosite; do
+            tag=$(gh api "repos/SagerNet/sing-$db/releases/latest" --jq .tag_name)
+            printf '%s' "$tag" > "$db.version.txt"
+            gh release download "$tag" -R "SagerNet/sing-$db" -p "$db.db"
+            xz --keep -9 "$db.db"
+          done
+      - name: Build and test APK
+        working-directory: workspace/NekoBoxForAndroid
+        run: |
+          ./gradlew :app:testOssDebugUnitTest :app:assembleOssDebug --stacktrace
+      - name: Sign APKs with the persistent signing identity
+        working-directory: workspace/NekoBoxForAndroid
+        env:
+          DYNAMIC_CORE_SIGNING_KEY: ${{ secrets.DYNAMIC_CORE_SIGNING_KEY }}
+        run: |
+          signer="$ANDROID_HOME/build-tools/36.1.0/lib/apksigner.jar"
+          javac -cp "$signer" -d dynamic-output/java buildScript/dynamic/SignApk.java
+          for abi in arm64-v8a x86_64; do
+            apk=$(find app/build/outputs/apk/oss/debug -name "*$abi*.apk" | head -1)
+            test -n "$apk"
+            java -cp "dynamic-output/java:$signer" SignApk dynamic-output/signer.der "$apk" "dynamic-output/NekoBox-Dynamic-$abi.apk"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekobox-dynamic
+          path: |
+            workspace/NekoBoxForAndroid/dynamic-output/*.apk
+            workspace/NekoBoxForAndroid/dynamic-output/*.zip
+            workspace/NekoBoxForAndroid/app/src/main/assets/dynamic-core/binding.txt
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dynamic-test-results
+          path: workspace/NekoBoxForAndroid/app/build/reports/tests/

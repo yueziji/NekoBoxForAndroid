@@ -81,6 +81,7 @@ fun Project.setupCommon() {
             }
             getByName("debug") {
                 applicationIdSuffix = "debug"
+                signingConfig = null
                 isDebuggable = true
                 isJniDebuggable = true
             }
@@ -118,7 +119,7 @@ fun Project.setupAppCommon() {
 }
 
 fun Project.setupApp() {
-    val pkgName = requireMetadata().getProperty("PACKAGE_NAME")
+    val pkgName = "io.github.yueziji.nekobox.dynamic"
     val verName = requireMetadata().getProperty("VERSION_NAME")
     val verCode = (requireMetadata().getProperty("VERSION_CODE").toInt()) * 5
     android.apply {
@@ -145,9 +146,7 @@ fun Project.setupApp() {
             reset()
             isEnable = true
             isUniversalApk = false
-            include("armeabi-v7a")
             include("arm64-v8a")
-            include("x86")
             include("x86_64")
         }
 

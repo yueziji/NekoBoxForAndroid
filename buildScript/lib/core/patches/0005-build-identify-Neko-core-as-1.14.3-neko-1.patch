@@ -15,4 +15,4 @@ index 5a816a733..80fe387e7 100644
  package constant
  
 -var Version = "unknown"
-+var Version = "1.14.3-neko-1"
++var Version = "1.14.4-dynamic.1"

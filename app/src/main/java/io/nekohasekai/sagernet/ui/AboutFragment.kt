@@ -105,8 +105,17 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                                 .icon(R.drawable.ic_baseline_layers_24)
                                 .text(getString(R.string.version_x, "sing-box"))
                                 .subText(Libcore.versionBox())
-                                .setOnClickAction { }
+                                .setOnClickAction {
+                                    startActivity(Intent(requireContext(), moe.matsuri.nb4a.core.CoreUpdateActivity::class.java))
+                                }
                                 .build())
+                        .addItem(
+                            MaterialAboutActionItem.Builder()
+                                .text("内核更新与回退")
+                                .subText("在线更新 / 本地导入 / 恢复内置内核")
+                                .setOnClickAction {
+                                    startActivity(Intent(requireContext(), moe.matsuri.nb4a.core.CoreUpdateActivity::class.java))
+                                }.build())
                         .addItem(
                             MaterialAboutActionItem.Builder()
                                 .icon(R.drawable.ic_baseline_card_giftcard_24)
