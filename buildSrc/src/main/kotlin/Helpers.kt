@@ -28,9 +28,9 @@ fun Project.requireLocalProperties(): Properties {
 
 fun Project.setupCommon() {
     android.apply {
-        buildToolsVersion = "36.1.0"
+        buildToolsVersion = "36.0.0"
         compileSdk {
-            version = release(37)
+            version = release(36)
         }
         defaultConfig {
             minSdk = 23

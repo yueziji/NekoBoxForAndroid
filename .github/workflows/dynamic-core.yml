@@ -26,7 +26,7 @@ jobs:
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
       - name: Install Android toolchain
-        run: sdkmanager 'platforms;android-37' 'build-tools;36.1.0' 'ndk;28.2.13676358'
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358'
       - name: Build and test native core
         working-directory: workspace/NekoBoxForAndroid
         env:
@@ -40,7 +40,7 @@ jobs:
           DYNAMIC_CORE_SIGNING_KEY: ${{ secrets.DYNAMIC_CORE_SIGNING_KEY }}
         run: |
           python -m pip install cryptography
-          python buildScript/dynamic/prepare.py --aar libcore/libcore.aar --seq libcore/gomobile/bind/java/Seq.java --android-jar "$ANDROID_HOME/platforms/android-37/android.jar" --version 1.14.4-dynamic.1 --output dynamic-output
+          python buildScript/dynamic/prepare.py --aar libcore/libcore.aar --seq libcore/gomobile/bind/java/Seq.java --android-jar "$ANDROID_HOME/platforms/android-36/android.jar" --version 1.14.4-dynamic.1 --output dynamic-output
       - name: Download rule databases
         working-directory: workspace/NekoBoxForAndroid
         env:
@@ -63,7 +63,7 @@ jobs:
         env:
           DYNAMIC_CORE_SIGNING_KEY: ${{ secrets.DYNAMIC_CORE_SIGNING_KEY }}
         run: |
-          signer="$ANDROID_HOME/build-tools/36.1.0/lib/apksigner.jar"
+          signer="$ANDROID_HOME/build-tools/36.0.0/lib/apksigner.jar"
           javac -cp "$signer" -d dynamic-output/java buildScript/dynamic/SignApk.java
           for abi in arm64-v8a x86_64; do
             apk=$(find app/build/outputs/apk/oss/debug -name "*$abi*.apk" | head -1)
