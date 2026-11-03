@@ -11,6 +11,7 @@ for patch in "$ROOT"/buildScript/lib/core/patches/*.patch; do
   git -C ../sing-box apply --check "$patch"
   git -C ../sing-box apply "$patch"
 done
+(cd ../sing-box && go test ./boxapi -tags=with_gvisor,with_quic,with_wireguard,with_utls,with_clash_api,badlinkname,tfogo_checklinkname0 -ldflags=-checklinkname=0)
 git clone --quiet "$REPOSITORY_LIBNEKO" ../libneko
 git -C ../libneko switch --detach "$COMMIT_LIBNEKO"
 git clone --quiet "$REPOSITORY_GOMOBILE" libcore/gomobile
