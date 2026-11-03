@@ -3,6 +3,10 @@ package moe.matsuri.nb4a.core;
 import android.app.Instrumentation;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.Context;
+import android.content.ComponentName;
+import android.content.ServiceConnection;
+import android.os.IBinder;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.AtomicFile;
@@ -10,6 +14,8 @@ import org.json.JSONObject;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import libcore.Libcore;
 import libcore.BoxInstance;
 
@@ -19,9 +25,20 @@ public class CoreSmokeInstrumentation extends Instrumentation {
     @Override public void onCreate(Bundle args) { super.onCreate(args); arguments = args; start(); }
     @Override public void onStart() {
         Bundle report = new Bundle();
+        CountDownLatch backgroundReady = new CountDownLatch(1);
+        ServiceConnection background = new ServiceConnection() {
+            @Override public void onServiceConnected(ComponentName name, IBinder service) { backgroundReady.countDown(); }
+            @Override public void onServiceDisconnected(ComponentName name) { }
+        };
+        boolean bound = false;
         try {
             // Instrumentation starts before Application.onCreate has finished on the main thread.
             waitForIdleSync();
+            // Room auto-binds its invalidation service in :bg. Hold an explicit binding
+            // until its Application.onCreate completes before instrumentation can kill it.
+            bound = getTargetContext().bindService(new Intent(getTargetContext(), io.nekohasekai.sagernet.bg.VpnService.class)
+                    .setAction("io.nekohasekai.sagernet.SERVICE"), background, Context.BIND_AUTO_CREATE);
+            if (!bound || !backgroundReady.await(20, TimeUnit.SECONDS)) throw new AssertionError("Background core did not initialize");
             String action = arguments.getString("action", "probe");
             switch (action) {
                 case "config":
@@ -80,8 +97,11 @@ public class CoreSmokeInstrumentation extends Instrumentation {
             }
             report.putString("result", "PASS");
             report.putString("status", CoreLoader.status());
+            getTargetContext().unbindService(background);
+            bound = false;
             finish(Activity.RESULT_OK, report);
         } catch (Throwable error) {
+            if (bound) getTargetContext().unbindService(background);
             report.putString("result", "FAIL");
             report.putString("error", error.getClass().getSimpleName() + ": " + error.getMessage());
             finish(Activity.RESULT_CANCELED, report);
