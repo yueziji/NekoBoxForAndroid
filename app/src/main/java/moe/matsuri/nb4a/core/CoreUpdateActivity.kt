@@ -102,7 +102,7 @@ class CoreUpdateActivity : ThemedActivity() {
             .header("Accept", "application/vnd.github+json").build()
         val releases = client.newCall(request).execute().use { response ->
             check(response.isSuccessful) { "无法查询更新（HTTP ${response.code}）" }
-            JSONArray(response.body.string())
+            JSONArray(requireNotNull(response.body) { "更新服务返回空响应" }.string())
         }
         val assetName = "nekobox-core-${CoreLoader.abi()}.zip"
         for (i in 0 until releases.length()) {
@@ -117,7 +117,7 @@ class CoreUpdateActivity : ThemedActivity() {
                 require(url.startsWith("https://github.com/yueziji/NekoBoxForAndroid/releases/download/")) { "内核下载来源无效" }
                 client.newCall(Request.Builder().url(url).build()).execute().use { response ->
                     check(response.isSuccessful) { "内核下载失败（HTTP ${response.code}）" }
-                    CoreLoader.install(response.body.byteStream())
+                    CoreLoader.install(requireNotNull(response.body) { "内核下载返回空响应" }.byteStream())
                 }
                 return
             }
