@@ -38,6 +38,9 @@ def main():
         if name.endswith('.class'):
             binding.update(name.encode() + b'\0' + data)
     binding_hash = binding.hexdigest()
+    contract = json.loads((root / 'buildScript/dynamic/compatibility.json').read_text())
+    if binding_hash != contract['binding_sha256']:
+        raise RuntimeError('Java binding changed: stop automatic publication; an App upgrade is required')
     staging = output / 'java'
     staging.mkdir(exist_ok=True)
     (staging / 'original.jar').write_bytes(original)

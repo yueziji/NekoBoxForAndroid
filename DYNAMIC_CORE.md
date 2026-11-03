@@ -37,6 +37,23 @@
 
 ## 验证范围
 
-本地 JUnit 校验签名、篡改、接口、架构、Android 版本和 ZIP 路径。CI 编译 Go/AAR/APK，并在单独的 Android 模拟器中验证内置内核启动、SOCKS TCP 数据通路、签名包导入、重启后动态加载和恢复内置内核。
+本地 JUnit 校验签名、篡改、接口、架构、Android 版本和 ZIP 路径。CI 编译 Go/AAR/APK，并在单独的 Android 模拟器中验证内置内核启动、SOCKS TCP 数据通路、签名包导入、重启后动态加载和恢复内置内核。自动更新还验证旧 APK 导入并加载候选内核，以及 GUI 配置生成器生成的 SOCKS、Shadowsocks、VMess、VLESS、Trojan、Hysteria2 配置（分别关闭/开启 FakeDNS）；配置构造检查不等于真实节点连接测试。
 
 模拟器只在 CI 创建，禁止对用户正在运行的模拟器执行此测试。arm64 手机 VPN、实际代理节点、IPv6 和 Wi-Fi/蜂窝切换需要另行验收；具体已完成项目以交付记录和 CI 结果为准。
+
+## 自动跟进官方稳定版
+
+默认分支 `main` 的 `.github/workflows/core-watch.yml` 是调度入口，默认每天北京时间 **10:17** 检查一次，复用 `feature/dynamic-core` 的构建工作流。默认分支原有 App 代码不参与动态内核构建。
+
+1. 从官方 Releases 的 `latest` 接口取得稳定版，排除 alpha / beta / RC；将 tag 解析为不可变源码提交。
+2. 与已有动态内核 Releases 比较，已发布或更旧的版本跳过构建。没有新版时只运行轻量检测。
+3. 自动应用四个兼容补丁，版本号由 linker 注入；源码提交和版本共同进入原生缓存键，防止误用旧缓存。
+4. 固定检查 `compatibility.json` 中已发布 App 的 Java 绑定指纹。原先的 x86_64 APK 作为 CI 基线保存在首版 Release，并校验固定 SHA-256；它仅供 CI 使用。
+5. 所有编译、单元测试、旧 APK 加载、配置兼容及模拟器运行测试通过后，发布 `dynamic-core-版本-auto.1`，包含两个架构的签名内核包、源码记录和摘要文件。App 沿用现有更新入口，无需为此调度功能重装。
+6. 发布先创建草稿，上传完整后才公开。补丁冲突、接口指纹变化、测试失败或上传失败均停止发布，保持当前可用 Release。不覆盖已有 Release；残留草稿需人工检查。
+
+在 GitHub Actions 的 **Follow sing-box stable → Run workflow** 可手动检查。勾选 `verify_current` 会强制构建当前官方稳定版并完成全部检查及发布材料生成，但不会公开新 Release，适合演练。失败原因见对应 Actions 运行和 GitHub 的工作流失败通知设置；本流程不发送额外消息。
+
+官方版本不是任意未来版本都保证兼容，自动化只能在通过上述检查后发布。测试失败需要维护者调整兼容补丁或升级 App，不能通过跳过检查来继续发布。
+
+GitHub 定时任务可能延迟，公开仓库连续 60 天无仓库活动可能被平台自动暂停；遇到此情况需在 Actions 重新启用该工作流。[GitHub 调度规则](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)。

@@ -1,0 +1,6 @@
+{
+  "binding_sha256": "be074da3233838510b30f8896015ec152ab486b9e9523053094edaff00b63a22",
+  "baseline_version": "1.14.4",
+  "baseline_apk_url": "https://github.com/yueziji/NekoBoxForAndroid/releases/download/dynamic-core-1.14.4-preview.1/NekoBox-Dynamic-x86_64.apk",
+  "baseline_apk_sha256": "c51dae4d9ec382576e1028798b462151084250fb22da2f570cf866f9e7b351b8"
+}

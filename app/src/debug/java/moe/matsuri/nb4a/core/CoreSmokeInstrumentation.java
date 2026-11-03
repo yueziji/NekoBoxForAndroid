@@ -23,6 +23,9 @@ public class CoreSmokeInstrumentation extends Instrumentation {
             waitForIdleSync();
             String action = arguments.getString("action", "probe");
             switch (action) {
+                case "config":
+                    report.putInt("configurations", CoreConfigProbe.verify());
+                    break;
                 case "ui":
                     for (Class<?> screen : new Class<?>[] {io.nekohasekai.sagernet.ui.MainActivity.class, CoreUpdateActivity.class}) {
                         Activity activity = startActivitySync(new Intent(getTargetContext(), screen).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -51,7 +54,7 @@ public class CoreSmokeInstrumentation extends Instrumentation {
                 case "probe":
                     String expected = arguments.getString("expected", "内置");
                     if (!CoreLoader.status().contains(expected)) throw new AssertionError("Unexpected core selection: " + CoreLoader.status());
-                    if (!Libcore.versionBox().contains("1.14.4")) throw new AssertionError("Unexpected core version");
+                    if (!Libcore.versionBox().equals(arguments.getString("version"))) throw new AssertionError("Unexpected core version");
                     probeSocks();
                     break;
                 default: throw new IllegalArgumentException("Unknown smoke action");

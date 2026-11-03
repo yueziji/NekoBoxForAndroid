@@ -3,16 +3,54 @@ on:
   push:
     branches: [feature/dynamic-core]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      core_commit:
+        type: string
+        required: true
+      core_version:
+        type: string
+        required: true
+      publish:
+        type: boolean
+        default: false
+    secrets:
+      DYNAMIC_CORE_SIGNING_KEY:
+        required: true
 permissions:
   contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    outputs:
+      source: ${{ steps.core.outputs.source }}
+      commit: ${{ steps.core.outputs.commit }}
+      version: ${{ steps.core.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
           path: workspace/NekoBoxForAndroid
+          ref: feature/dynamic-core
+          persist-credentials: false
+      - name: Resolve immutable core source
+        id: core
+        working-directory: workspace/NekoBoxForAndroid
+        env:
+          REQUESTED_COMMIT: ${{ inputs.core_commit }}
+          REQUESTED_VERSION: ${{ inputs.core_version }}
+        run: |
+          source buildScript/lib/core/get_source_env.sh
+          commit=${REQUESTED_COMMIT:-$COMMIT_SING_BOX}
+          version=${REQUESTED_VERSION:-1.14.4}
+          [[ "$commit" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "source=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "CORE_COMMIT=$commit" >> "$GITHUB_ENV"
+          echo "CORE_VERSION=$version-dynamic.1" >> "$GITHUB_ENV"
+          python -m unittest discover -s buildScript/dynamic -p 'test_*.py'
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -34,7 +72,7 @@ jobs:
           path: |
             workspace/NekoBoxForAndroid/libcore/libcore.aar
             workspace/NekoBoxForAndroid/libcore/gomobile/bind/java/Seq.java
-          key: dynamic-native-v1-${{ hashFiles('workspace/NekoBoxForAndroid/libcore/**', 'workspace/NekoBoxForAndroid/buildScript/lib/core/**', 'workspace/NekoBoxForAndroid/buildScript/dynamic/build-core.sh') }}
+          key: dynamic-native-v2-${{ steps.core.outputs.commit }}-${{ steps.core.outputs.version }}-${{ hashFiles('workspace/NekoBoxForAndroid/libcore/**', 'workspace/NekoBoxForAndroid/buildScript/lib/core/**', 'workspace/NekoBoxForAndroid/buildScript/dynamic/build-core.sh') }}
       - name: Build and test native core
         id: native-build
         if: steps.native-cache.outputs.cache-hit != 'true'
@@ -59,7 +97,14 @@ jobs:
           DYNAMIC_CORE_SIGNING_KEY: ${{ secrets.DYNAMIC_CORE_SIGNING_KEY }}
         run: |
           python -m pip install cryptography
-          python buildScript/dynamic/prepare.py --aar libcore/libcore.aar --seq libcore/gomobile/bind/java/Seq.java --android-jar "$ANDROID_HOME/platforms/android-36/android.jar" --version 1.14.4-dynamic.1 --output dynamic-output
+          python buildScript/dynamic/prepare.py --aar libcore/libcore.aar --seq libcore/gomobile/bind/java/Seq.java --android-jar "$ANDROID_HOME/platforms/android-36/android.jar" --version "$CORE_VERSION" --output dynamic-output
+      - name: Fetch the immutable compatibility baseline APK
+        working-directory: workspace/NekoBoxForAndroid
+        run: |
+          url=$(jq -r .baseline_apk_url buildScript/dynamic/compatibility.json)
+          digest=$(jq -r .baseline_apk_sha256 buildScript/dynamic/compatibility.json)
+          curl --fail --location --retry 3 "$url" -o dynamic-output/baseline.apk
+          echo "$digest  dynamic-output/baseline.apk" | sha256sum --check -
       - name: Download rule databases
         working-directory: workspace/NekoBoxForAndroid
         env:
@@ -98,7 +143,7 @@ jobs:
         with:
           name: nekobox-dynamic
           path: |
-            workspace/NekoBoxForAndroid/dynamic-output/*.apk
+            workspace/NekoBoxForAndroid/dynamic-output/NekoBox-Dynamic-*.apk
             workspace/NekoBoxForAndroid/dynamic-output/*.zip
             workspace/NekoBoxForAndroid/app/src/main/assets/dynamic-core/binding.txt
           if-no-files-found: error
@@ -117,3 +162,31 @@ jobs:
         with:
           name: dynamic-test-results
           path: workspace/NekoBoxForAndroid/app/build/reports/tests/
+  publish:
+    needs: build
+    # Also exercise metadata generation after successful push builds / verification runs.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.source }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: nekobox-dynamic
+          path: verified-output
+      - name: Publish only when every compatibility check passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+          COMMIT: ${{ needs.build.outputs.commit }}
+          SOURCE: ${{ needs.build.outputs.source }}
+          PUBLISH: ${{ inputs.publish }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          args=()
+          if [[ "$PUBLISH" != true ]]; then args+=(--dry-run); fi
+          python buildScript/dynamic/publish.py --version "$VERSION" --commit "$COMMIT" --source "$SOURCE" --run-url "$RUN_URL" --directory verified-output/dynamic-output "${args[@]}"
