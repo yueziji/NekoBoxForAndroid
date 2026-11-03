@@ -21,7 +21,12 @@ probe() {
       if jq -e '(.pending_main // "") == "" and (.pending_bg // "") == ""' <<< "$state" > /dev/null; then break; fi
       sleep 0.1
     done
-    jq -e '(.pending_main // "") == "" and (.pending_bg // "") == ""' <<< "$state" > /dev/null
+    if ! jq -e '(.pending_main // "") == "" and (.pending_bg // "") == ""' <<< "$state" > /dev/null; then
+      jq '{selected,previous,pending_main,pending_bg,notice}' <<< "$state"
+      # Fresh synthetic CI device only; emit crash diagnostics with credential fields masked.
+      adb logcat -d -s AndroidRuntime:E libc:F go:E | sed -E 's/(password|token|secret|authorization)([=: ]+)[^[:space:]]+/\1\2[redacted]/Ig'
+      exit 1
+    fi
   fi
   adb shell am force-stop "$PKG"
 }
