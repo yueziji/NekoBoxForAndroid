@@ -12,12 +12,24 @@ probe() {
   }
   printf '%s\n' "$result"
   [[ "$result" == *"result=PASS"* ]]
+  if [[ "$1" != interrupt ]]; then
+    # Finishing instrumentation can restart bound processes. Let native initialization
+    # finish before the next am instrument kills them; otherwise we simulate a crash.
+    sleep 3
+    for attempt in $(seq 1 100); do
+      state=$(adb shell "run-as $PKG cat no_backup/dynamic-core/state.json" | tr -d '\r')
+      if jq -e '(.pending_main // "") == "" and (.pending_bg // "") == ""' <<< "$state" > /dev/null; then break; fi
+      sleep 0.1
+    done
+    jq -e '(.pending_main // "") == "" and (.pending_bg // "") == ""' <<< "$state" > /dev/null
+  fi
+  adb shell am force-stop "$PKG"
 }
 probe probe 内置
 adb push dynamic-output/nekobox-core-x86_64.zip /data/local/tmp/nekobox-core-test.zip
 adb shell "run-as $PKG sh -c 'mkdir -p files; cat /data/local/tmp/nekobox-core-test.zip > files/core-test.zip'"
 probe stage
-probe ui
+probe ui 动态
 [[ "$result" == *"$CORE_VERSION（动态）"* ]]
 probe builtin
 # Update only the CI instrumentation to run data-plane and configuration checks for arbitrary versions.
@@ -30,7 +42,7 @@ probe interrupt
 probe probe 内置
 probe stage
 probe probe 动态
-probe config
-probe ui
+probe config 动态
+probe ui 动态
 probe builtin
 probe probe 内置

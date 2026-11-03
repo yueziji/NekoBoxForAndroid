@@ -4,6 +4,7 @@ import android.app.Instrumentation;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.util.AtomicFile;
 import org.json.JSONObject;
 import java.io.*;
@@ -30,6 +31,15 @@ public class CoreSmokeInstrumentation extends Instrumentation {
                     for (Class<?> screen : new Class<?>[] {io.nekohasekai.sagernet.ui.MainActivity.class, CoreUpdateActivity.class}) {
                         Activity activity = startActivitySync(new Intent(getTargetContext(), screen).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
                         waitForIdleSync();
+                        if (activity instanceof io.nekohasekai.sagernet.ui.MainActivity) {
+                            boolean[] connected = {false};
+                            long deadline = SystemClock.elapsedRealtime() + 15000;
+                            do {
+                                runOnMainSync(() -> connected[0] = ((io.nekohasekai.sagernet.ui.MainActivity) activity).getConnection().getService() != null);
+                                if (!connected[0]) SystemClock.sleep(100);
+                            } while (!connected[0] && SystemClock.elapsedRealtime() < deadline);
+                            if (!connected[0]) throw new AssertionError("Background service did not initialize");
+                        }
                         runOnMainSync(activity::finish);
                     }
                     break;
@@ -58,6 +68,15 @@ public class CoreSmokeInstrumentation extends Instrumentation {
                     probeSocks();
                     break;
                 default: throw new IllegalArgumentException("Unknown smoke action");
+            }
+            if (action.equals("probe") || action.equals("config") || action.equals("ui")) {
+                if (!CoreLoader.status().contains(arguments.getString("expected", "内置")))
+                    throw new AssertionError("Unexpected core selection: " + CoreLoader.status());
+                try (InputStream input = new FileInputStream(new File(getTargetContext().getNoBackupFilesDir(), "dynamic-core/state.json"))) {
+                    JSONObject state = new JSONObject(new String(CoreBundle.read(input, 65536), StandardCharsets.UTF_8));
+                    if (arguments.getString("expected", "内置").equals("动态") && state.optString("selected").isEmpty())
+                        throw new AssertionError("Candidate rolled back during the test: " + CoreLoader.status());
+                }
             }
             report.putString("result", "PASS");
             report.putString("status", CoreLoader.status());
