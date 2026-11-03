@@ -2,7 +2,7 @@
 
 此分支基于 MatsuriDayo/NekoBoxForAndroid 的 PR #1213 集成改动，将内核固定为官方 sing-box 1.14.4，加上仓库中可审查的 Neko 兼容补丁。
 
-安装包使用独立的 applicationId `io.github.yueziji.nekobox.dynamicdebug`，不会覆盖原 NekoBox。现有节点可通过原版导出后导入。签名密钥只通过 GitHub Actions Secret 注入进程内存，不生成私钥文件。APK 与内核包均使用持久的签名身份。
+安装包使用独立的 applicationId `io.github.yueziji.nekobox.dynamic.debug`，不会覆盖原 NekoBox。现有节点可通过原版导出后导入。签名密钥只通过 GitHub Actions Secret 注入进程内存，不生成私钥文件。APK 与内核包均使用持久的签名身份。当前为保留调试和 CI 验证入口的预览版。
 
 ## 使用
 

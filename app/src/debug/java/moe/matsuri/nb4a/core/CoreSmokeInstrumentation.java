@@ -19,6 +19,8 @@ public class CoreSmokeInstrumentation extends Instrumentation {
     @Override public void onStart() {
         Bundle report = new Bundle();
         try {
+            // Instrumentation starts before Application.onCreate has finished on the main thread.
+            waitForIdleSync();
             String action = arguments.getString("action", "probe");
             switch (action) {
                 case "ui":
@@ -48,7 +50,7 @@ public class CoreSmokeInstrumentation extends Instrumentation {
                     break;
                 case "probe":
                     String expected = arguments.getString("expected", "内置");
-                    if (!CoreLoader.status().contains(expected)) throw new AssertionError("Unexpected core selection");
+                    if (!CoreLoader.status().contains(expected)) throw new AssertionError("Unexpected core selection: " + CoreLoader.status());
                     if (!Libcore.versionBox().contains("1.14.4")) throw new AssertionError("Unexpected core version");
                     probeSocks();
                     break;
