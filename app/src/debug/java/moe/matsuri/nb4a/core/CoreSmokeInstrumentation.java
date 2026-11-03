@@ -54,7 +54,7 @@ public class CoreSmokeInstrumentation extends Instrumentation {
                 case "probe":
                     String expected = arguments.getString("expected", "内置");
                     if (!CoreLoader.status().contains(expected)) throw new AssertionError("Unexpected core selection: " + CoreLoader.status());
-                    if (!Libcore.versionBox().equals(arguments.getString("version"))) throw new AssertionError("Unexpected core version");
+                    if (!Libcore.versionBox().split("\n", 2)[0].equals("sing-box: " + arguments.getString("version"))) throw new AssertionError("Unexpected core version");
                     probeSocks();
                     break;
                 default: throw new IllegalArgumentException("Unknown smoke action");
